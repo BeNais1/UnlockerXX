@@ -7,11 +7,10 @@ from tkinter import filedialog, messagebox, ttk
 import json
 import time
 
-
 class FileUnlockerApp:
     def __init__(self, root):
         self.root = root
-        self.language = self.load_language()  # Загружаем язык из файла настроек
+        self.language = self.load_language()
         self.translations = {
             'en': {
                 'title': "Python File Unlocker",
@@ -60,11 +59,8 @@ class FileUnlockerApp:
         }
         self.root.title(self.translate('title'))
         self.root.geometry("600x400")
-
-        # Make the app look a bit better
         self.style = ttk.Style()
         self.style.theme_use('clam')
-
         self.create_widgets()
 
     def translate(self, key, **kwargs):
@@ -93,49 +89,34 @@ class FileUnlockerApp:
         os.execl(sys.executable, sys.executable, *sys.argv)
 
     def create_widgets(self):
-        # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Language dropdown
         lang_frame = ttk.Frame(main_frame)
         lang_frame.pack(fill=tk.X, pady=5)
-
         ttk.Label(lang_frame, text=self.translate('language')).pack(side=tk.LEFT, padx=5)
         lang_var = tk.StringVar(value=self.language)
         lang_dropdown = ttk.OptionMenu(lang_frame, lang_var, self.language, *self.translations.keys(),
                                         command=self.switch_language)
         lang_dropdown.pack(side=tk.LEFT, padx=5)
-
-        # File selection
         file_frame = ttk.LabelFrame(main_frame, text=self.translate('file_folder'), padding="10")
         file_frame.pack(fill=tk.X, pady=5)
-
         self.file_path = tk.StringVar()
         ttk.Entry(file_frame, textvariable=self.file_path).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         ttk.Button(file_frame, text=self.translate('browse'), command=self.browse_file).pack(side=tk.LEFT)
-
-        # Actions frame
         action_frame = ttk.Frame(main_frame)
         action_frame.pack(fill=tk.X, pady=5)
-
         ttk.Button(action_frame, text=self.translate('unlock_file'), command=self.unlock_file).pack(side=tk.LEFT, padx=2)
         ttk.Button(action_frame, text=self.translate('delete_file'), command=self.delete_file).pack(side=tk.LEFT, padx=2)
         ttk.Button(action_frame, text=self.translate('kill_process'), command=self.kill_process).pack(side=tk.LEFT, padx=2)
-
-        # Process list
         process_frame = ttk.LabelFrame(main_frame, text=self.translate('locking_processes'), padding="10")
         process_frame.pack(fill=tk.BOTH, expand=True)
-
         self.tree = ttk.Treeview(process_frame, columns=('pid', 'name', 'status'), show='headings')
         self.tree.heading('pid', text='PID')
         self.tree.heading('name', text='Process Name')
         self.tree.heading('status', text='Status')
-
         vsb = ttk.Scrollbar(process_frame, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(process_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
         self.tree.grid(row=0, column=0, sticky='nsew')
         vsb.grid(row=0, column=1, sticky='ns')
         hsb.grid(row=1, column=0, sticky='ew')
@@ -152,9 +133,7 @@ class FileUnlockerApp:
         file_path = self.file_path.get()
         if not file_path or not os.path.exists(file_path):
             return
-
         self.tree.delete(*self.tree.get_children())
-
         try:
             for proc in psutil.process_iter(['pid', 'name', 'status']):
                 try:
@@ -173,9 +152,7 @@ class FileUnlockerApp:
         if not file_path:
             messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
             return
-
         try:
-            # Try to open the file in read-write mode to "unlock" it
             with open(file_path, 'a'):
                 os.utime(file_path, None)
             messagebox.showinfo(self.translate('success'), self.translate('file_unlocked'))
@@ -187,7 +164,6 @@ class FileUnlockerApp:
         if not file_path:
             messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
             return
-
         try:
             if os.path.isfile(file_path):
                 os.remove(file_path)
@@ -203,7 +179,6 @@ class FileUnlockerApp:
         if not selected_item:
             messagebox.showwarning(self.translate('warning'), self.translate('select_process'))
             return
-
         pid = self.tree.item(selected_item)['values'][0]
         try:
             p = psutil.Process(pid)
@@ -212,7 +187,6 @@ class FileUnlockerApp:
             self.find_locking_processes()
         except Exception as e:
             messagebox.showerror(self.translate('error'), self.translate('failed_kill', error=str(e)))
-
 
 class SplashScreen:
     def __init__(self, root):
@@ -234,25 +208,20 @@ class SplashScreen:
             "Configuring application settings...",
             "Finalizing optimization..."
         ]
-
         for i, task in enumerate(tasks, 1):
             self.status_label.config(text=task)
             self.progress['value'] = (i / len(tasks)) * 100
             self.root.update_idletasks()
-            time.sleep(1)  # Simulate task duration
-
+            time.sleep(1)
         self.root.destroy()
 
 if __name__ == "__main__":
-    # Check for admin rights (required for some operations)
     if not ctypes.windll.shell32.IsUserAnAdmin():
         ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
         sys.exit()
-
     splash_root = tk.Tk()
     splash = SplashScreen(splash_root)
     splash_root.mainloop()
-
     root = tk.Tk()
     app = FileUnlockerApp(root)
     root.mainloop()
