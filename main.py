@@ -4,12 +4,14 @@ import psutil
 import ctypes
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import json
+import time
 
 
 class FileUnlockerApp:
     def __init__(self, root):
         self.root = root
-        self.language = 'en'  # Установим язык по умолчанию
+        self.language = self.load_language()  # Загружаем язык из файла настроек
         self.translations = {
             'en': {
                 'title': "Python File Unlocker",
@@ -19,6 +21,7 @@ class FileUnlockerApp:
                 'delete_file': "Delete File",
                 'kill_process': "Kill Process",
                 'locking_processes': "Locking Processes",
+                'language': "Language",
                 'warning': "Warning",
                 'select_file': "Please select a file first",
                 'success': "Success",
@@ -40,6 +43,7 @@ class FileUnlockerApp:
                 'delete_file': "Удалить файл",
                 'kill_process': "Завершить процесс",
                 'locking_processes': "Блокирующие процессы",
+                'language': "Язык",
                 'warning': "Предупреждение",
                 'select_file': "Пожалуйста, выберите файл",
                 'success': "Успех",
@@ -69,13 +73,39 @@ class FileUnlockerApp:
     def switch_language(self, lang):
         if lang in self.translations:
             self.language = lang
-            self.root.title(self.translate('title'))
-            # Здесь можно обновить текст всех виджетов, если нужно
+            self.save_language(lang)
+            self.restart_app()
+
+    def save_language(self, lang):
+        with open("settings.json", "w") as f:
+            json.dump({"language": lang}, f)
+
+    def load_language(self):
+        try:
+            with open("settings.json", "r") as f:
+                settings = json.load(f)
+                return settings.get("language", "en")
+        except FileNotFoundError:
+            return "en"
+
+    def restart_app(self):
+        self.root.destroy()
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
     def create_widgets(self):
         # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Language dropdown
+        lang_frame = ttk.Frame(main_frame)
+        lang_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(lang_frame, text=self.translate('language')).pack(side=tk.LEFT, padx=5)
+        lang_var = tk.StringVar(value=self.language)
+        lang_dropdown = ttk.OptionMenu(lang_frame, lang_var, self.language, *self.translations.keys(),
+                                        command=self.switch_language)
+        lang_dropdown.pack(side=tk.LEFT, padx=5)
 
         # File selection
         file_frame = ttk.LabelFrame(main_frame, text=self.translate('file_folder'), padding="10")
@@ -184,11 +214,44 @@ class FileUnlockerApp:
             messagebox.showerror(self.translate('error'), self.translate('failed_kill', error=str(e)))
 
 
+class SplashScreen:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Optimizing Application")
+        self.root.geometry("400x200")
+        self.progress = ttk.Progressbar(self.root, orient=tk.HORIZONTAL, length=300, mode='determinate')
+        self.progress.pack(pady=20)
+        self.label = ttk.Label(self.root, text="Optimizing application for system requirements...")
+        self.label.pack()
+        self.status_label = ttk.Label(self.root, text="Initializing...")
+        self.status_label.pack(pady=10)
+        self.optimize_application()
+
+    def optimize_application(self):
+        tasks = [
+            "Checking system compatibility...",
+            "Loading necessary modules...",
+            "Configuring application settings...",
+            "Finalizing optimization..."
+        ]
+
+        for i, task in enumerate(tasks, 1):
+            self.status_label.config(text=task)
+            self.progress['value'] = (i / len(tasks)) * 100
+            self.root.update_idletasks()
+            time.sleep(1)  # Simulate task duration
+
+        self.root.destroy()
+
 if __name__ == "__main__":
     # Check for admin rights (required for some operations)
     if not ctypes.windll.shell32.IsUserAnAdmin():
         ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
         sys.exit()
+
+    splash_root = tk.Tk()
+    splash = SplashScreen(splash_root)
+    splash_root.mainloop()
 
     root = tk.Tk()
     app = FileUnlockerApp(root)
