@@ -9,7 +9,52 @@ from tkinter import filedialog, messagebox, ttk
 class FileUnlockerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Python File Unlocker")
+        self.language = 'en'  # Установим язык по умолчанию
+        self.translations = {
+            'en': {
+                'title': "Python File Unlocker",
+                'file_folder': "File/Folder to Unlock",
+                'browse': "Browse...",
+                'unlock_file': "Unlock File",
+                'delete_file': "Delete File",
+                'kill_process': "Kill Process",
+                'locking_processes': "Locking Processes",
+                'warning': "Warning",
+                'select_file': "Please select a file first",
+                'success': "Success",
+                'file_unlocked': "File unlocked successfully",
+                'file_deleted': "File/folder deleted successfully",
+                'select_process': "Please select a process first",
+                'process_terminated': "Process {pid} terminated",
+                'error': "Error",
+                'failed_unlock': "Failed to unlock file: {error}",
+                'failed_delete': "Failed to delete: {error}",
+                'failed_kill': "Failed to kill process: {error}",
+                'failed_check': "Failed to check processes: {error}"
+            },
+            'ru': {
+                'title': "Разблокировщик файлов на Python",
+                'file_folder': "Файл/Папка для разблокировки",
+                'browse': "Обзор...",
+                'unlock_file': "Разблокировать файл",
+                'delete_file': "Удалить файл",
+                'kill_process': "Завершить процесс",
+                'locking_processes': "Блокирующие процессы",
+                'warning': "Предупреждение",
+                'select_file': "Пожалуйста, выберите файл",
+                'success': "Успех",
+                'file_unlocked': "Файл успешно разблокирован",
+                'file_deleted': "Файл/папка успешно удалены",
+                'select_process': "Пожалуйста, выберите процесс",
+                'process_terminated': "Процесс {pid} завершен",
+                'error': "Ошибка",
+                'failed_unlock': "Не удалось разблокировать файл: {error}",
+                'failed_delete': "Не удалось удалить: {error}",
+                'failed_kill': "Не удалось завершить процесс: {error}",
+                'failed_check': "Не удалось проверить процессы: {error}"
+            }
+        }
+        self.root.title(self.translate('title'))
         self.root.geometry("600x400")
 
         # Make the app look a bit better
@@ -18,29 +63,38 @@ class FileUnlockerApp:
 
         self.create_widgets()
 
+    def translate(self, key, **kwargs):
+        return self.translations[self.language].get(key, key).format(**kwargs)
+
+    def switch_language(self, lang):
+        if lang in self.translations:
+            self.language = lang
+            self.root.title(self.translate('title'))
+            # Здесь можно обновить текст всех виджетов, если нужно
+
     def create_widgets(self):
         # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # File selection
-        file_frame = ttk.LabelFrame(main_frame, text="File/Folder to Unlock", padding="10")
+        file_frame = ttk.LabelFrame(main_frame, text=self.translate('file_folder'), padding="10")
         file_frame.pack(fill=tk.X, pady=5)
 
         self.file_path = tk.StringVar()
         ttk.Entry(file_frame, textvariable=self.file_path).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Button(file_frame, text="Browse...", command=self.browse_file).pack(side=tk.LEFT)
+        ttk.Button(file_frame, text=self.translate('browse'), command=self.browse_file).pack(side=tk.LEFT)
 
         # Actions frame
         action_frame = ttk.Frame(main_frame)
         action_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Button(action_frame, text="Unlock File", command=self.unlock_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text="Delete File", command=self.delete_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text="Kill Process", command=self.kill_process).pack(side=tk.LEFT, padx=2)
+        ttk.Button(action_frame, text=self.translate('unlock_file'), command=self.unlock_file).pack(side=tk.LEFT, padx=2)
+        ttk.Button(action_frame, text=self.translate('delete_file'), command=self.delete_file).pack(side=tk.LEFT, padx=2)
+        ttk.Button(action_frame, text=self.translate('kill_process'), command=self.kill_process).pack(side=tk.LEFT, padx=2)
 
         # Process list
-        process_frame = ttk.LabelFrame(main_frame, text="Locking Processes", padding="10")
+        process_frame = ttk.LabelFrame(main_frame, text=self.translate('locking_processes'), padding="10")
         process_frame.pack(fill=tk.BOTH, expand=True)
 
         self.tree = ttk.Treeview(process_frame, columns=('pid', 'name', 'status'), show='headings')
@@ -82,26 +136,26 @@ class FileUnlockerApp:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to check processes: {str(e)}")
+            messagebox.showerror(self.translate('error'), self.translate('failed_check', error=str(e)))
 
     def unlock_file(self):
         file_path = self.file_path.get()
         if not file_path:
-            messagebox.showwarning("Warning", "Please select a file first")
+            messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
             return
 
         try:
             # Try to open the file in read-write mode to "unlock" it
             with open(file_path, 'a'):
                 os.utime(file_path, None)
-            messagebox.showinfo("Success", "File unlocked successfully")
+            messagebox.showinfo(self.translate('success'), self.translate('file_unlocked'))
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to unlock file: {str(e)}")
+            messagebox.showerror(self.translate('error'), self.translate('failed_unlock', error=str(e)))
 
     def delete_file(self):
         file_path = self.file_path.get()
         if not file_path:
-            messagebox.showwarning("Warning", "Please select a file first")
+            messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
             return
 
         try:
@@ -109,25 +163,25 @@ class FileUnlockerApp:
                 os.remove(file_path)
             elif os.path.isdir(file_path):
                 os.rmdir(file_path)
-            messagebox.showinfo("Success", "File/folder deleted successfully")
+            messagebox.showinfo(self.translate('success'), self.translate('file_deleted'))
             self.file_path.set("")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete: {str(e)}")
+            messagebox.showerror(self.translate('error'), self.translate('failed_delete', error=str(e)))
 
     def kill_process(self):
         selected_item = self.tree.selection()
         if not selected_item:
-            messagebox.showwarning("Warning", "Please select a process first")
+            messagebox.showwarning(self.translate('warning'), self.translate('select_process'))
             return
 
         pid = self.tree.item(selected_item)['values'][0]
         try:
             p = psutil.Process(pid)
             p.terminate()
-            messagebox.showinfo("Success", f"Process {pid} terminated")
+            messagebox.showinfo(self.translate('success'), self.translate('process_terminated', pid=pid))
             self.find_locking_processes()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to kill process: {str(e)}")
+            messagebox.showerror(self.translate('error'), self.translate('failed_kill', error=str(e)))
 
 
 if __name__ == "__main__":
