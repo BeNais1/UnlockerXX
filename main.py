@@ -6,6 +6,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import json
 import time
+from file_operations import browse_file, find_locking_processes, unlock_file, delete_file
+from process_operations import find_high_usage_processes, kill_process
+from ui_helpers import create_treeview
 
 class FileUnlockerApp:
     def __init__(self, root):
@@ -32,7 +35,10 @@ class FileUnlockerApp:
                 'failed_unlock': "Failed to unlock file: {error}",
                 'failed_delete': "Failed to delete: {error}",
                 'failed_kill': "Failed to kill process: {error}",
-                'failed_check': "Failed to check processes: {error}"
+                'failed_check': "Failed to check processes: {error}",
+                'high_usage_processes': "High Resource Usage Processes",
+                'cpu': "CPU %",
+                'memory': "Memory %"
             },
             'ru': {
                 'title': "Разблокировщик файлов на Python",
@@ -54,11 +60,14 @@ class FileUnlockerApp:
                 'failed_unlock': "Не удалось разблокировать файл: {error}",
                 'failed_delete': "Не удалось удалить: {error}",
                 'failed_kill': "Не удалось завершить процесс: {error}",
-                'failed_check': "Не удалось проверить процессы: {error}"
+                'failed_check': "Не удалось проверить процессы: {error}",
+                'high_usage_processes': "Процессы с высоким использованием ресурсов",
+                'cpu': "ЦП %",
+                'memory': "Память %"
             }
         }
         self.root.title(self.translate('title'))
-        self.root.geometry("600x400")
+        self.root.geometry("800x600")
         self.style = ttk.Style()
         self.style.theme_use('clam')
         self.create_widgets()
@@ -91,102 +100,45 @@ class FileUnlockerApp:
     def create_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+
         lang_frame = ttk.Frame(main_frame)
         lang_frame.pack(fill=tk.X, pady=5)
+
         ttk.Label(lang_frame, text=self.translate('language')).pack(side=tk.LEFT, padx=5)
         lang_var = tk.StringVar(value=self.language)
         lang_dropdown = ttk.OptionMenu(lang_frame, lang_var, self.language, *self.translations.keys(),
                                         command=self.switch_language)
         lang_dropdown.pack(side=tk.LEFT, padx=5)
+
         file_frame = ttk.LabelFrame(main_frame, text=self.translate('file_folder'), padding="10")
         file_frame.pack(fill=tk.X, pady=5)
+
         self.file_path = tk.StringVar()
         ttk.Entry(file_frame, textvariable=self.file_path).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Button(file_frame, text=self.translate('browse'), command=self.browse_file).pack(side=tk.LEFT)
+        ttk.Button(file_frame, text=self.translate('browse'), command=lambda: browse_file(self.file_path, self.find_locking_processes)).pack(side=tk.LEFT)
+
         action_frame = ttk.Frame(main_frame)
         action_frame.pack(fill=tk.X, pady=5)
-        ttk.Button(action_frame, text=self.translate('unlock_file'), command=self.unlock_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text=self.translate('delete_file'), command=self.delete_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text=self.translate('kill_process'), command=self.kill_process).pack(side=tk.LEFT, padx=2)
+
+        ttk.Button(action_frame, text=self.translate('unlock_file'), command=lambda: unlock_file(self.file_path.get())).pack(side=tk.LEFT, padx=2)
+        ttk.Button(action_frame, text=self.translate('delete_file'), command=lambda: delete_file(self.file_path.get())).pack(side=tk.LEFT, padx=2)
+        ttk.Button(action_frame, text=self.translate('kill_process'), command=lambda: kill_process(self.tree)).pack(side=tk.LEFT, padx=2)
+
         process_frame = ttk.LabelFrame(main_frame, text=self.translate('locking_processes'), padding="10")
         process_frame.pack(fill=tk.BOTH, expand=True)
-        self.tree = ttk.Treeview(process_frame, columns=('pid', 'name', 'status'), show='headings')
-        self.tree.heading('pid', text='PID')
-        self.tree.heading('name', text='Process Name')
-        self.tree.heading('status', text='Status')
-        vsb = ttk.Scrollbar(process_frame, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(process_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-        process_frame.grid_rowconfigure(0, weight=1)
-        process_frame.grid_columnconfigure(0, weight=1)
 
-    def browse_file(self):
-        file_path = filedialog.askopenfilename()
-        if file_path:
-            self.file_path.set(file_path)
-            self.find_locking_processes()
+        self.tree = create_treeview(process_frame, ['pid', 'name', 'status'], ['PID', 'Process Name', 'Status'])
+
+        high_usage_frame = ttk.LabelFrame(main_frame, text=self.translate('high_usage_processes'), padding="10")
+        high_usage_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        self.high_usage_tree = create_treeview(high_usage_frame, ['pid', 'name', 'cpu', 'memory'], ['PID', self.translate('cpu'), self.translate('memory')])
 
     def find_locking_processes(self):
-        file_path = self.file_path.get()
-        if not file_path or not os.path.exists(file_path):
-            return
-        self.tree.delete(*self.tree.get_children())
-        try:
-            for proc in psutil.process_iter(['pid', 'name', 'status']):
-                try:
-                    files = proc.open_files()
-                    for f in files:
-                        if os.path.normcase(f.path) == os.path.normcase(file_path):
-                            self.tree.insert('', 'end',
-                                             values=(proc.info['pid'], proc.info['name'], proc.info['status']))
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-        except Exception as e:
-            messagebox.showerror(self.translate('error'), self.translate('failed_check', error=str(e)))
+        find_locking_processes(self.file_path.get(), self.tree)
 
-    def unlock_file(self):
-        file_path = self.file_path.get()
-        if not file_path:
-            messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
-            return
-        try:
-            with open(file_path, 'a'):
-                os.utime(file_path, None)
-            messagebox.showinfo(self.translate('success'), self.translate('file_unlocked'))
-        except Exception as e:
-            messagebox.showerror(self.translate('error'), self.translate('failed_unlock', error=str(e)))
-
-    def delete_file(self):
-        file_path = self.file_path.get()
-        if not file_path:
-            messagebox.showwarning(self.translate('warning'), self.translate('select_file'))
-            return
-        try:
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-            elif os.path.isdir(file_path):
-                os.rmdir(file_path)
-            messagebox.showinfo(self.translate('success'), self.translate('file_deleted'))
-            self.file_path.set("")
-        except Exception as e:
-            messagebox.showerror(self.translate('error'), self.translate('failed_delete', error=str(e)))
-
-    def kill_process(self):
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showwarning(self.translate('warning'), self.translate('select_process'))
-            return
-        pid = self.tree.item(selected_item)['values'][0]
-        try:
-            p = psutil.Process(pid)
-            p.terminate()
-            messagebox.showinfo(self.translate('success'), self.translate('process_terminated', pid=pid))
-            self.find_locking_processes()
-        except Exception as e:
-            messagebox.showerror(self.translate('error'), self.translate('failed_kill', error=str(e)))
+    def find_high_usage_processes(self):
+        find_high_usage_processes(self.high_usage_tree)
 
 class SplashScreen:
     def __init__(self, root):

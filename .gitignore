@@ -28,3 +28,7 @@ Thumbs.db
 
 # Игнорирование файлов настроек
 settings.json
+
+# Игнорирование временных файлов PyInstaller
+build/**
+**/localpycs/
